@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Birthday Maria!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020202; /* Deep dark night sky */
+            font-family: 'Poppins', sans-serif;
+            color: #fff;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Canvas for Fireworks */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Main Content Container */
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 2s ease-in;
+            pointer-events: none; /* Let clicks pass through to canvas if needed */
+        }
+
+        h1 {
+            font-family: 'Pacifico', cursive;
+            font-size: 5rem;
+            margin: 0;
+            background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        p {
+            font-size: 1.5rem;
+            margin-top: 10px;
+            color: #ddd;
+            letter-spacing: 2px;
+        }
+
+        /* Start Overlay */
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 1s ease-out;
+        }
+
+        .start-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            font-family: 'Poppins', sans-serif;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: pulse 2s infinite;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.4);
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 107, 107, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            h1 { font-size: 3rem; }
+            p { font-size: 1rem; }
+            .start-btn { padding: 15px 30px; font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Audio Player -->
+    <!-- IMPORTANT: If you download this to your computer, change the src below to "happy-birthday-357371.mp3" -->
+    <audio id="birthdayAudio" loop>
+        <source src="http://googleusercontent.com/file_content/0" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <!-- Canvas for Fireworks -->
+    <canvas id="fireworksCanvas"></canvas>
+
+    <!-- Main Message -->
+    <div class="container" id="mainContent">
+        <h1>Happy Birthday<br>Maria!</h1>
+        <p>Wishing you a magical day!</p>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay">
+        <button class="start-btn" onclick="startCelebration()">🎁 Tap to Open</button>
+    </div>
+
+    <script>
+        // -- Configuration --
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+        const audio = document.getElementById('birthdayAudio');
+        let fireworks = [];
+        let particles = [];
+        let running = false;
+
+        // Resize canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // -- Classes --
+
+        // Utility: Random number within range
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // Firework Class (The rocket going up)
+        class Firework {
+            constructor(sx, sy, tx, ty) {
+                this.x = sx;
+                this.y = sy;
+                this.sx = sx;
+                this.sy = sy;
+                this.tx = tx;
+                this.ty = ty;
+                this.distanceToTarget = Math.sqrt(Math.pow(tx - sx, 2) + Math.pow(ty - sy, 2));
+                this.distanceTraveled = 0;
+                this.coordinates = [];
+                this.coordinateCount = 3;
+                while(this.coordinateCount--) {
+                    this.coordinates.push([this.x, this.y]);
+                }
+                this.angle = Math.atan2(ty - sy, tx - sx);
+                this.speed = 2;
+                this.acceleration = 1.05;
+                this.brightness = random(50, 70);
+                this.targetRadius = 1;
+            }
+
+            update(index) {
+                this.coordinates.pop();
+                this.coordinates.unshift([this.x, this.y]);
+
+                // Cycle target radius for visual effect
+                if (this.targetRadius < 8) {
+                    this.targetRadius += 0.3;
+                } else {
+                    this.targetRadius = 1;
+                }
+
+                this.speed *= this.acceleration;
+                
+                const vx = Math.cos(this.angle) * this.speed;
+                const vy = Math.sin(this.angle) * this.speed;
+                this.distanceTraveled = Math.sqrt(Math.pow(this.sx - this.x, 2) + Math.pow(this.sy - this.y, 2));
+
+                if (this.distanceTraveled >= this.distanceToTarget) {
+                    // Create explosion
+                    createParticles(this.tx, this.ty);
+                    // Remove firework
+                    fireworks.splice(index, 1);
+                } else {
+                    this.x += vx;
+                    this.y += vy;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coordinates[this.coordinates.length - 1][0], this.coordinates[this.coordinates.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = 'hsl(' + random(0, 360) + ', 100%, ' + this.brightness + '%)';
+                ctx.stroke();
+            }
+        }
+
+        // Particle Class (The explosion)
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.coordinates = [];
+                this.coordinateCount = 5;
+                while(this.coordinateCount--) {
+                    this.coordinates.push([this.x, this.y]);
+                }
+                this.angle = random(0, Math.PI * 2);
+                this.speed = random(1, 10);
+                this.friction = 0.95;
+                this.gravity = 1;
+                this.hue = random(0, 360);
+                this.brightness = random(50, 80);
+                this.alpha = 1;
+                this.decay = random(0.015, 0.03);
+            }
+
+            update(index) {
+                this.coordinates.pop();
+                this.coordinates.unshift([this.x, this.y]);
+                this.speed *= this.friction;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed + this.gravity;
+                this.alpha -= this.decay;
+
+                if (this.alpha <= this.decay) {
+                    particles.splice(index, 1);
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coordinates[this.coordinates.length - 1][0], this.coordinates[this.coordinates.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + this.brightness + '%, ' + this.alpha + ')';
+                ctx.stroke();
+            }
+        }
+
+        function createParticles(x, y) {
+            let particleCount = 30;
+            while (particleCount--) {
+                particles.push(new Particle(x, y));
+            }
+        }
+
+        function loop() {
+            if (!running) return;
+            requestAnimationFrame(loop);
+
+            // Trails effect
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Launch fireworks randomly
+            if (random(0, 100) < 5) { // Adjustable frequency
+               fireworks.push(new Firework(canvas.width / 2, canvas.height, random(0, canvas.width), random(0, canvas.height / 2)));
+            }
+
+            let i = fireworks.length;
+            while (i--) {
+                fireworks[i].draw();
+                fireworks[i].update(i);
+            }
+
+            let j = particles.length;
+            while (j--) {
+                particles[j].draw();
+                particles[j].update(j);
+            }
+        }
+
+        // -- User Interaction --
+        function startCelebration() {
+            running = true;
+            
+            // 1. Hide Overlay
+            const overlay = document.getElementById('start-overlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 1000);
+
+            // 2. Play Audio
+            // Note: Volume is set to 50% so it's not too loud immediately
+            audio.volume = 0.5;
+            audio.play().catch(e => {
+                console.log("Audio play failed (user interaction might be needed):", e);
+            });
+
+            // 3. Show Text
+            const content = document.getElementById('mainContent');
+            content.style.opacity = '1';
+
+            // 4. Start Fireworks Loop
+            loop();
+        }
+    </script>
+</body>
+</html>
+
+
